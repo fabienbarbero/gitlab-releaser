@@ -1,0 +1,38 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group 'com.github.fabienbarbero'
+version '1.0-SNAPSHOT'
+
+sourceCompatibility = 11
+
+repositories {
+    mavenCentral()
+}
+
+application {
+    mainClassName = 'com.github.fabienbarbero.releaser.Main'
+}
+
+distributions {
+    main {
+        contents {
+            into '/'
+        }
+    }
+}
+
+dependencies {
+    compile ('org.gitlab4j:gitlab4j-api:4.14.22') {
+        exclude group: 'commons-logging', module: 'commons-logging'
+    }
+    compile 'org.slf4j:slf4j-simple:1.7.30'
+    compile 'org.slf4j:jcl-over-slf4j:1.7.30'
+    testCompile 'org.junit.jupiter:junit-jupiter-api:5.6.1'
+}
+
+test {
+    useJUnitPlatform()
+}
