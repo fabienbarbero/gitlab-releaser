@@ -12,6 +12,12 @@ public class EnvironmentContext implements JobContext {
         return System.getenv("CI_PROJECT_ID");
     }
 
+    @Override
+    public String getProjectName() {
+        return System.getenv("CI_PROJECT_NAME");
+    }
+
+    @Override
     public String getBuildBranch() {
         return System.getenv("CI_COMMIT_BRANCH");
     }

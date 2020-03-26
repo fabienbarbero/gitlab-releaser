@@ -6,6 +6,8 @@ public interface JobContext {
 
     String getProjectId();
 
+    String getProjectName();
+
     String getBuildBranch();
 
     String getMergeRequestSourceBranch();
