@@ -1,6 +1,7 @@
 package com.github.fabienbarbero.releaser.context;
 
-public class EnvironmentContext implements JobContext {
+public class EnvironmentContext
+        implements JobContext {
 
     @Override
     public String getGitlabUrl() {
