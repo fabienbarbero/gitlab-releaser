@@ -2,7 +2,9 @@ package com.github.fabienbarbero.releaser;
 
 import org.gitlab4j.api.Constants;
 import org.gitlab4j.api.GitLabApi;
+import org.gitlab4j.api.MergeRequestApi;
 import org.gitlab4j.api.TagsApi;
+import org.gitlab4j.api.models.MergeRequest;
 import org.gitlab4j.api.models.Tag;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,8 +30,11 @@ public class ReleaseProcessorTest {
         GitLabApi gitLabApi = mock(GitLabApi.class);
         tagsApi = mock(TagsApi.class);
         when(gitLabApi.getTagsApi()).thenReturn(tagsApi);
+        MergeRequestApi mergeRequestApi = mock(MergeRequestApi.class);
+        when(gitLabApi.getMergeRequestApi()).thenReturn(mergeRequestApi);
         when(tagsApi.createTag(eq("projectId"), any(), any()))
                 .thenAnswer(invocation -> createTag(invocation.getArgument(1)));
+        when(mergeRequestApi.createMergeRequest(any(), any())).thenReturn(new MergeRequest());
 
         processor = new ReleaseProcessor(context, gitLabApi);
     }
@@ -88,13 +93,21 @@ public class ReleaseProcessorTest {
         verify(tagsApi, times(0)).createTag("projectId", "test-1.0.2", "master");
 
         // Second hotfix
-        when(tagsApi.getTagsStream("projectId")).thenReturn(Stream.of(createTag("test-1.0"), createTag("test-1.0.1")));
+        when(tagsApi.getTagsStream("projectId")).thenReturn(Stream.of(
+                createTag("test-1.0"),
+                createTag("test-0.1"),
+                createTag("test-0.1.1"),
+                createTag("test-1.0.1")));
         processor.run();
         verify(tagsApi, times(1)).createTag("projectId", "test-1.0.1", "master");
         verify(tagsApi, times(1)).createTag("projectId", "test-1.0.2", "master");
 
         // Reverse tags to test sorting
-        when(tagsApi.getTagsStream("projectId")).thenReturn(Stream.of(createTag("test-1.0.1"), createTag("test-1.0")));
+        when(tagsApi.getTagsStream("projectId")).thenReturn(Stream.of(
+                createTag("test-1.0.1"),
+                createTag("test-1.0"),
+                createTag("test-0.1"),
+                createTag("test-0.1.1")));
         processor.run();
         verify(tagsApi, times(1)).createTag("projectId", "test-1.0.1", "master");
         verify(tagsApi, times(2)).createTag("projectId", "test-1.0.2", "master");

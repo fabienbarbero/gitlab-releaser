@@ -4,6 +4,8 @@ import com.github.fabienbarbero.releaser.context.JobContext;
 import org.gitlab4j.api.Constants;
 import org.gitlab4j.api.GitLabApi;
 import org.gitlab4j.api.GitLabApiException;
+import org.gitlab4j.api.models.MergeRequest;
+import org.gitlab4j.api.models.MergeRequestParams;
 import org.gitlab4j.api.models.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +20,7 @@ public class ReleaseProcessor {
     private static final String BRANCH_RELEASE = "release-";
     private static final String BRANCH_HOTFIX = "hotfix-";
     private static final String BRANCH_MASTER = "master";
+    private static final String BRANCH_DEVELOP = "develop";
 
     private final JobContext context;
     private final GitLabApi gitLabApi;
@@ -30,7 +33,7 @@ public class ReleaseProcessor {
     }
 
     // For tests
-    public ReleaseProcessor(JobContext context, GitLabApi gitLabApi) {
+    ReleaseProcessor(JobContext context, GitLabApi gitLabApi) {
         this.context = context;
         this.gitLabApi = gitLabApi;
     }
@@ -52,7 +55,7 @@ public class ReleaseProcessor {
                     throw new ExecutionException("Only merge request must be used on master branch");
 
                 } else if (mergeRequestBranch.startsWith(BRANCH_RELEASE)) {
-                    tag = createRelease();
+                    tag = createFinalRelease();
 
                 } else if (mergeRequestBranch.startsWith(BRANCH_HOTFIX)) {
                     tag = createHotfix();
@@ -71,7 +74,7 @@ public class ReleaseProcessor {
         }
     }
 
-    private String createRelease()
+    private String createFinalRelease()
             throws GitLabApiException {
         LOGGER.info("Will release final sources");
         String sourceBranch = context.getMergeRequestSourceBranch();
@@ -79,18 +82,17 @@ public class ReleaseProcessor {
 
         // Create tag
         Tag tag = gitLabApi.getTagsApi().createTag(context.getProjectId(), tagName, context.getBuildBranch());
+        mergeOnDevelop(BRANCH_MASTER);
         return tag.getName();
     }
 
     private String createHotfix()
             throws GitLabApiException {
         LOGGER.info("Will create hotfix release");
-        String sourceBranch = context.getMergeRequestSourceBranch();
-
 
         // Get last release
         Version lastVersion = gitLabApi.getTagsApi().getTagsStream(context.getProjectId())
-                .filter(tag -> !tag.getName().contains("RC")) // FIXME: use regexp
+                .filter(tag -> !tag.getName().contains("-RC")) // FIXME: use regexp
                 .map(tag -> getReleaseVersion(tag.getName()))
                 .max(Comparator.naturalOrder()).orElseThrow(() -> new ExecutionException("No release found for hotfix"));
 
@@ -109,6 +111,8 @@ public class ReleaseProcessor {
 
         // Create tag
         Tag tag = gitLabApi.getTagsApi().createTag(context.getProjectId(), tagName, context.getBuildBranch());
+        mergeOnDevelop(BRANCH_MASTER);
+
         return tag.getName();
     }
 
@@ -131,6 +135,7 @@ public class ReleaseProcessor {
 
         // Create tag
         Tag tag = gitLabApi.getTagsApi().createTag(context.getProjectId(), tagName, releaseBranch);
+        mergeOnDevelop(releaseBranch);
         return tag.getName();
     }
 
@@ -150,5 +155,15 @@ public class ReleaseProcessor {
             throw new ExecutionException("Invalid release candidate tag: " + tagName);
         }
         return Integer.parseInt(matcher.group(1));
+    }
+
+    private void mergeOnDevelop(String sourceBranch)
+            throws GitLabApiException {
+        MergeRequestParams mrp = new MergeRequestParams()
+                .withSourceBranch(sourceBranch)
+                .withTargetBranch(BRANCH_DEVELOP);
+        MergeRequest mr = gitLabApi.getMergeRequestApi().createMergeRequest(context.getProjectId(), mrp);
+        gitLabApi.getMergeRequestApi().acceptMergeRequest(context.getProjectId(), mr.getIid());
+        LOGGER.info("Branch {} merged on develop", sourceBranch);
     }
 }
